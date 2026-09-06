@@ -1,0 +1,51 @@
+name: Build and Push Pulse Images to ECR 
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'app/**'
+      - '.github/workflows/ci.yml'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  SHA_TAG: sha-${{ github.sha }}
+
+permissions:
+  id-token: write # this required for aws oidc authentication
+  contents: read
+
+jobs:
+  build-push-sign:
+    name: Build, Scan, Sign, Push
+    runs-on: ubuntu-24.04
+ 
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::716542960555:role/franchesny-github-deploy-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, Tag, and Push Artifacts
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          SERVICE: pulseservice
+        run: |
+          echo "Building $SERVICE..."
+
+          #IMAGE_URI="$ECR_REGISTRY/pulse-ecs/$SERVICE:${{ env.SHA_TAG }}"
+          IMAGE_URI="$ECR_REGISTRY/pulse-ecs/$SERVICE:latest"
+
+
+          docker build -t $IMAGE_URI ./app
+          
+          docker push $IMAGE_URI

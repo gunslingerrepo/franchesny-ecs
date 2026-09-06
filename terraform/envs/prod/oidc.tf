@@ -22,7 +22,8 @@ resource "aws_iam_policy" "github_deploy_policy" {
         Action = [
           "ecr:BatchCheckLayerAvailability", "ecr:PutImage", "ecr:InitiateLayerUpload",
           "ecr:UploadLayerPart", "ecr:CompleteLayerUpload", "ecr:BatchGetImage",
-          "ecr:DescribeRepositories", "ecr:DescribeImages"
+          "ecr:DescribeRepositories", "ecr:DescribeImages", "ecr:ListTagsForResource" , "ecr:GetRepositoryPolicy", 
+          "ecr:GetLifecyclePolicy"
         ]
         Resource = "arn:aws:ecr:${var.aws_region}:716542960555:repository/${var.project_name}*"
       },
@@ -138,8 +139,8 @@ resource "aws_iam_policy" "github_deploy_policy" {
         Effect = "Allow"
         Action = ["s3:ListBucket", "s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
         Resource = [
-          "arn:aws:s3:::franchesny-tfstate-acctid-716542960555",
-          "arn:aws:s3:::franchesny-tfstate-acctid-716542960555/*"
+          "arn:aws:s3:::franchesny-tfstate-acctid",
+          "arn:aws:s3:::franchesny-tfstate-acctid/*"
         ]
       },
       {

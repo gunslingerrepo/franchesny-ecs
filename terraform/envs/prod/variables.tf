@@ -25,3 +25,9 @@ variable "tags" {
     ManagedBy   = "Terraform"
   }
 }
+
+variable "image_tag" {
+  description = "ECR image tag to deploy. The CD workflow passes this as -var=\"image_tag=sha-<commit>\" on every apply; never left at a floating \"latest\" for a real deploy."
+  type        = string
+  default     = "latest"
+}

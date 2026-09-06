@@ -90,9 +90,61 @@ resource "aws_iam_policy" "github_deploy_policy" {
         Effect = "Allow"
         Action = [
           "logs:CreateLogGroup", "logs:DeleteLogGroup", "logs:DescribeLogGroups",
-          "logs:PutRetentionPolicy", "logs:ListTagsLogGroup", "logs:TagResource"
+          "logs:PutRetentionPolicy", "logs:ListTagsLogGroup", "logs:TagResource", "logs:ListTagsForResource"
         ]
         Resource = "arn:aws:logs:${var.aws_region}:716542960555:log-group:/ecs/${var.project_name}*"
+      },
+      {
+        Sid    = "CloudWatchAlarms"
+        Effect = "Allow"
+        Action = [
+          "cloudwatch:PutMetricAlarm", "cloudwatch:DeleteAlarms", "cloudwatch:DescribeAlarms",
+          "cloudwatch:TagResource", "cloudwatch:UntagResource", "cloudwatch:ListTagsForResource"
+        ]
+        Resource = "arn:aws:cloudwatch:${var.aws_region}:716542960555:alarm:${var.project_name}*"
+      },
+      {
+        Sid    = "AcmManage"
+        Effect = "Allow"
+        Action = [
+          "acm:ImportCertificate", "acm:DescribeCertificate", "acm:DeleteCertificate",
+          "acm:AddTagsToCertificate", "acm:ListTagsForCertificate"
+        ]
+        Resource = "arn:aws:acm:${var.aws_region}:716542960555:certificate/*"
+      },
+      {
+        Sid    = "NetworkAndLoadBalancing"
+        Effect = "Allow"
+        # EC2/ELB networking create+describe calls don't support resource-level
+        # IAM conditions — scoped by enumerating exact actions instead of
+        # "ec2:" / "elasticloadbalancing:".
+        Action = [
+          "ec2:CreateVpc", "ec2:DeleteVpc", "ec2:DescribeVpcs", "ec2:ModifyVpcAttribute", "ec2:DescribeVpcAttribute",
+          "ec2:CreateSubnet", "ec2:DeleteSubnet", "ec2:DescribeSubnets",
+          "ec2:CreateInternetGateway", "ec2:DeleteInternetGateway",
+          "ec2:AttachInternetGateway", "ec2:DetachInternetGateway", "ec2:DescribeInternetGateways",
+          "ec2:CreateNatGateway", "ec2:DeleteNatGateway", "ec2:DescribeNatGateways",
+          "ec2:AllocateAddress", "ec2:ReleaseAddress", "ec2:DescribeAddresses",
+          "ec2:CreateRouteTable", "ec2:DeleteRouteTable", "ec2:CreateRoute", "ec2:DeleteRoute",
+          "ec2:AssociateRouteTable", "ec2:DisassociateRouteTable", "ec2:DescribeRouteTables",
+          "ec2:CreateSecurityGroup", "ec2:DeleteSecurityGroup",
+          "ec2:AuthorizeSecurityGroupIngress", "ec2:AuthorizeSecurityGroupEgress",
+          "ec2:RevokeSecurityGroupIngress", "ec2:RevokeSecurityGroupEgress",
+          "ec2:DescribeSecurityGroups", "ec2:DescribeAvailabilityZones",
+          "ec2:DescribeSecurityGroupRules", "ec2:DescribeAddressesAttribute",
+          "ec2:DescribeNetworkAcls", "ec2:CreateNetworkAclEntry", "ec2:DeleteNetworkAclEntry", "ec2:ReplaceNetworkAclEntry",
+          "ec2:CreateTags", "ec2:DescribeTags",
+          "elasticloadbalancing:CreateLoadBalancer", "elasticloadbalancing:DeleteLoadBalancer",
+          "elasticloadbalancing:DescribeLoadBalancers", "elasticloadbalancing:DescribeLoadBalancerAttributes",
+          "elasticloadbalancing:CreateTargetGroup", "elasticloadbalancing:DeleteTargetGroup",
+          "elasticloadbalancing:DescribeTargetGroups", "elasticloadbalancing:DescribeTargetGroupAttributes",
+          "elasticloadbalancing:DescribeTargetHealth",
+          "elasticloadbalancing:CreateListener", "elasticloadbalancing:DeleteListener",
+          "elasticloadbalancing:DescribeListeners", "elasticloadbalancing:DescribeListenerAttributes", "elasticloadbalancing:ModifyListener",
+          "elasticloadbalancing:ModifyLoadBalancerAttributes", "elasticloadbalancing:ModifyTargetGroupAttributes",
+          "elasticloadbalancing:AddTags", "elasticloadbalancing:DescribeTags"
+        ]
+        Resource = "*"
       },
       {
         Sid    = "IamForProjectRolesOnly"

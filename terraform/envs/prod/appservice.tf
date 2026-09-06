@@ -3,7 +3,7 @@ module "pulsesvc_service" {
   version = "~> 6.0.0"
 
   name        = "pulseservice"
-  cluster_arn = module.ecs_cl8.cluster_arn
+  cluster_arn = module.ecs_cluster.cluster_arn
 
   cpu    = 256
   memory = 512

@@ -23,7 +23,7 @@ resource "aws_iam_policy" "github_deploy_policy" {
           "ecr:BatchCheckLayerAvailability", "ecr:PutImage", "ecr:InitiateLayerUpload",
           "ecr:UploadLayerPart", "ecr:CompleteLayerUpload", "ecr:BatchGetImage",
           "ecr:DescribeRepositories", "ecr:DescribeImages", "ecr:ListTagsForResource", "ecr:GetRepositoryPolicy",
-          "ecr:GetLifecyclePolicy"
+          "ecr:GetLifecyclePolicy", "ecr:InitiateLayerUpload"
         ]
         Resource = "arn:aws:ecr:${var.aws_region}:716542960555:repository/${var.project_name}*"
       },

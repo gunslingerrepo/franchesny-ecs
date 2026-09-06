@@ -1,6 +1,6 @@
 module "iam_iam-github-oidc-provider" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-github-oidc-provider"
-  version = "~> 5.0"
+  version = "6.8.1"
 }
 
 resource "aws_iam_policy" "github_deploy_policy" {
@@ -211,7 +211,7 @@ resource "aws_iam_policy" "github_deploy_policy" {
 
 module "iam_iam-github-oidc-role" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-github-oidc-role"
-  version = "~> 5.0"
+  version = "6.8.1"
 
   name = "${var.project_name}-github-deploy-role"
 

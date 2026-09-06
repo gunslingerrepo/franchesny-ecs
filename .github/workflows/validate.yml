@@ -1,0 +1,95 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'app/**'
+      - '.github/workflows/**'
+      - 'terraform/**'
+
+permissions:
+  id-token: write   # required for AWS OIDC authentication
+  contents: read
+  pull-requests: write
+
+env:
+  AWS_REGION: us-east-1
+  TF_ENV_DIR: terraform/envs/prod   # switch per-PR or matrix this if you stand up envs/dev too
+
+jobs:
+  terraform-checks:
+    name: Terraform fmt / validate / plan
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.15.6"
+
+      - name: Terraform fmt check
+        run: terraform -chdir=${{ env.TF_ENV_DIR }} fmt -check -recursive
+
+      - name: Configure AWS Credentials via OIDC (plan role)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::716542960555:role/franchesny-github-deploy-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform init
+        run: terraform -chdir=${{ env.TF_ENV_DIR }} init
+
+      - name: Terraform validate
+        run: terraform -chdir=${{ env.TF_ENV_DIR }} validate
+
+      - name: Terraform plan
+        run: terraform -chdir=${{ env.TF_ENV_DIR }} plan -no-color
+
+  app-build-test:
+    name: App build and test
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Build image (no push)
+        run: docker build -t pulse-app-pr-check ./app
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: pip install -r app/requirements-dev.txt
+
+      - name: Run tests
+        run: pytest app/src -v
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-24.04
+    env:
+      TF_WORKING_DIR: terraform
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Run Trivy vulnerability scanner in IaC mode
+        uses: aquasecurity/trivy-action@v0.36.0
+        env:
+          TRIVY_TF_EXCLUDE_DOWNLOADED_MODULES: 'true'
+        with:
+          scan-type: 'fs'
+          hide-progress: false
+          format: 'table'
+          scan-ref: ${{ env.TF_WORKING_DIR }}
+          skip-dirs: ${{ env.TF_WORKING_DIR }}/.terraform
+          scanners: 'misconfig'
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL'
+          cache: true

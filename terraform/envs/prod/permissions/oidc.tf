@@ -28,6 +28,19 @@ resource "aws_iam_policy" "github_deploy_policy_1" {
         Resource = "arn:aws:ecr:${var.aws_region}:716542960555:repository/${var.project_name}*"
       },
       {
+        Sid    = "EcrRepoManagement"
+        Effect = "Allow"
+        Action = [
+          "ecr:CreateRepository", "ecr:DeleteRepository", "ecr:DescribeRepositories",
+          "ecr:PutLifecyclePolicy", "ecr:GetLifecyclePolicy", "ecr:DeleteLifecyclePolicy",
+          "ecr:PutImageScanningConfiguration",
+          "ecr:GetRepositoryPolicy", "ecr:SetRepositoryPolicy", "ecr:DeleteRepositoryPolicy",
+          "ecr:PutImageTagMutability",
+          "ecr:TagResource", "ecr:UntagResource", "ecr:ListTagsForResource"
+        ]
+        Resource = "arn:aws:ecr:${var.aws_region}:${data.aws_caller_identity.current.account_id}:repository/${var.project_name}*"
+      },
+      {
         Sid      = "EcsServiceDeploy"
         Effect   = "Allow"
         Action   = ["ecs:UpdateService", "ecs:DescribeServices", "ecs:CreateService", "ecs:DeleteService", "ecs:TagResource"]
@@ -41,7 +54,7 @@ resource "aws_iam_policy" "github_deploy_policy_1" {
         # explicitly instead of "ecs:*" to keep the surface as small as possible.
         Action = [
           "ecs:CreateCluster", "ecs:DeleteCluster", "ecs:DescribeClusters",
-          "ecs:RegisterTaskDefinition", "ecs:DescribeTaskDefinition", "ecs:DeregisterTaskDefinition"
+          "ecs:RegisterTaskDefinition", "ecs:DescribeTaskDefinition", "ecs:DeregisterTaskDefinition", "ecs:TagResource", "ecs:PutClusterCapacityProviders"
         ]
         Resource = "*"
       },
@@ -61,7 +74,7 @@ resource "aws_iam_policy" "github_deploy_policy_1" {
           "logs:CreateLogGroup", "logs:DeleteLogGroup", "logs:DescribeLogGroups",
           "logs:PutRetentionPolicy", "logs:ListTagsLogGroup", "logs:TagResource", "logs:ListTagsForResource"
         ]
-        Resource = "arn:aws:logs:${var.aws_region}:716542960555:log-group:/ecs/${var.project_name}*"
+        Resource = "*"
       },
       {
         Sid    = "CloudWatchAlarms"
@@ -112,7 +125,7 @@ resource "aws_iam_policy" "github_deploy_policy_2" {
           "ec2:DescribeSecurityGroups", "ec2:DescribeAvailabilityZones",
           "ec2:DescribeSecurityGroupRules", "ec2:DescribeAddressesAttribute",
           "ec2:DescribeNetworkAcls", "ec2:CreateNetworkAclEntry", "ec2:DeleteNetworkAclEntry", "ec2:ReplaceNetworkAclEntry",
-          "ec2:CreateTags", "ec2:DescribeTags",
+          "ec2:CreateTags", "ec2:DescribeTags", "ec2:DescribeAccountAttributes",
           "elasticloadbalancing:CreateLoadBalancer", "elasticloadbalancing:DeleteLoadBalancer",
           "elasticloadbalancing:DescribeLoadBalancers", "elasticloadbalancing:DescribeLoadBalancerAttributes",
           "elasticloadbalancing:CreateTargetGroup", "elasticloadbalancing:DeleteTargetGroup",
@@ -145,6 +158,19 @@ resource "aws_iam_policy" "github_deploy_policy_2" {
           "arn:aws:iam::716542960555:role/${var.project_name}-ecs-*",
           "arn:aws:iam::716542960555:policy/${var.project_name}-ecs-*"
         ]
+      },
+      {
+        Sid    = "CreateElbServiceLinkedRole"
+        Effect = "Allow"
+        Action = [
+          "iam:CreateServiceLinkedRole"
+        ]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "iam:AWSServiceName" = "elasticloadbalancing.amazonaws.com"
+          }
+        }
       },
       {
         Sid    = "IamSelfReadOnly"

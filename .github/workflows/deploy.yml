@@ -1,0 +1,124 @@
+name: "CI/CD - Franchesny"
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "app/**"
+      - "terraform/**"
+      - ".github/workflows/deploy.yml"
+
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  TF_ENV_DIR: terraform/envs/prod
+  SERVICE: pulseservice
+  IMAGE_TAG: sha-${{ github.sha }}
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-and-push:
+    name: "Build & Push Franchesny Image"
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::716542960555:role/franchesny-github-deploy-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Docker Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          IMAGE_URI="$ECR_REGISTRY/franchesny/$SERVICE:${IMAGE_TAG}"
+
+          echo "Building image:"
+          echo "$IMAGE_URI"
+
+          docker build \
+            --build-arg APP_VERSION="${IMAGE_TAG}" \
+            --build-arg GIT_COMMIT="${GITHUB_SHA}" \
+            --build-arg BUILD_NUMBER="${GITHUB_RUN_NUMBER}" \
+            -t "$IMAGE_URI" \
+            ./app
+
+      - name: Push Docker Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          IMAGE_URI="$ECR_REGISTRY/franchesny/$SERVICE:${IMAGE_TAG}"
+
+          echo "Pushing image:"
+          echo "$IMAGE_URI"
+
+          docker push "$IMAGE_URI"
+
+  terraform:
+    name: "Terraform Plan & Apply"
+    runs-on: ubuntu-24.04
+    needs: build-and-push
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::716542960555:role/franchesny-github-deploy-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.15.6"
+
+      - name: Terraform Init
+        run: |
+          terraform -chdir=${{ env.TF_ENV_DIR }} init
+
+      - name: Terraform Validate
+        run: |
+          terraform -chdir=${{ env.TF_ENV_DIR }} validate
+
+      - name: Terraform Plan
+        run: |
+          terraform \
+            -chdir=${{ env.TF_ENV_DIR }} \
+            plan \
+            -no-color \
+            -var="image_tag=${{ env.IMAGE_TAG }}"
+
+      - name: Terraform Apply
+        run: |
+          terraform \
+            -chdir=${{ env.TF_ENV_DIR }} \
+            apply \
+            -auto-approve \
+            -input=false \
+            -var="image_tag=${{ env.IMAGE_TAG }}"
+
+      - name: Wait for ECS Service Stability
+        run: |
+          aws ecs wait services-stable \
+            --cluster franchesny-ecs-cluster \
+            --services pulseservice \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Deployment Complete
+        run: |
+          echo "Franchesny deployment completed successfully."
+          echo "Image: sha-${GITHUB_SHA}"

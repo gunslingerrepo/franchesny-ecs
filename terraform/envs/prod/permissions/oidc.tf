@@ -1,10 +1,10 @@
 module "iam_iam-github-oidc-provider" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-github-oidc-provider"
-  version = "6.8.1"
+  version = "~> 5.0"
 }
 
-resource "aws_iam_policy" "github_deploy_policy" {
-  name        = "${var.project_name}-github-deploy-policy"
+resource "aws_iam_policy" "github_deploy_policy_1" {
+  name        = "${var.project_name}-github-deploy-policy-1"
   description = "Permissions for GitHub Actions to apply the ${var.project_name} stack. main branch only."
 
   policy = jsonencode({
@@ -55,37 +55,6 @@ resource "aws_iam_policy" "github_deploy_policy" {
         ]
       },
       {
-        Sid    = "NetworkAndLoadBalancing"
-        Effect = "Allow"
-        # EC2/ELB networking create+describe calls don't support resource-level
-        # IAM conditions — scoped by enumerating exact actions used instead of
-        # "ec2:*" / "elasticloadbalancing:*".
-        Action = [
-          "ec2:CreateVpc", "ec2:DeleteVpc", "ec2:DescribeVpcs", "ec2:ModifyVpcAttribute",
-          "ec2:CreateSubnet", "ec2:DeleteSubnet", "ec2:DescribeSubnets",
-          "ec2:CreateInternetGateway", "ec2:DeleteInternetGateway",
-          "ec2:AttachInternetGateway", "ec2:DetachInternetGateway", "ec2:DescribeInternetGateways",
-          "ec2:CreateNatGateway", "ec2:DeleteNatGateway", "ec2:DescribeNatGateways",
-          "ec2:AllocateAddress", "ec2:ReleaseAddress", "ec2:DescribeAddresses",
-          "ec2:CreateRouteTable", "ec2:DeleteRouteTable", "ec2:CreateRoute", "ec2:DeleteRoute",
-          "ec2:AssociateRouteTable", "ec2:DisassociateRouteTable", "ec2:DescribeRouteTables",
-          "ec2:CreateSecurityGroup", "ec2:DeleteSecurityGroup",
-          "ec2:AuthorizeSecurityGroupIngress", "ec2:AuthorizeSecurityGroupEgress",
-          "ec2:RevokeSecurityGroupIngress", "ec2:RevokeSecurityGroupEgress",
-          "ec2:DescribeSecurityGroups", "ec2:DescribeAvailabilityZones",
-          "ec2:CreateTags", "ec2:DescribeTags",
-          "elasticloadbalancing:CreateLoadBalancer", "elasticloadbalancing:DeleteLoadBalancer",
-          "elasticloadbalancing:DescribeLoadBalancers",
-          "elasticloadbalancing:CreateTargetGroup", "elasticloadbalancing:DeleteTargetGroup",
-          "elasticloadbalancing:DescribeTargetGroups", "elasticloadbalancing:DescribeTargetHealth",
-          "elasticloadbalancing:CreateListener", "elasticloadbalancing:DeleteListener",
-          "elasticloadbalancing:DescribeListeners", "elasticloadbalancing:ModifyListener",
-          "elasticloadbalancing:ModifyLoadBalancerAttributes", "elasticloadbalancing:ModifyTargetGroupAttributes",
-          "elasticloadbalancing:AddTags", "elasticloadbalancing:DescribeTags"
-        ]
-        Resource = "*"
-      },
-      {
         Sid    = "Logs"
         Effect = "Allow"
         Action = [
@@ -112,6 +81,16 @@ resource "aws_iam_policy" "github_deploy_policy" {
         ]
         Resource = "arn:aws:acm:${var.aws_region}:716542960555:certificate/*"
       },
+    ]
+  })
+}
+resource "aws_iam_policy" "github_deploy_policy_2" {
+  name        = "${var.project_name}-github-deploy-policy-2"
+  description = "Permissions for GitHub Actions to apply the ${var.project_name} stack. main branch only."
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
       {
         Sid    = "NetworkAndLoadBalancing"
         Effect = "Allow"
@@ -211,7 +190,7 @@ resource "aws_iam_policy" "github_deploy_policy" {
 
 module "iam_iam-github-oidc-role" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-github-oidc-role"
-  version = "6.8.1"
+  version = "~> 5.0"
 
   name = "${var.project_name}-github-deploy-role"
 
@@ -223,6 +202,7 @@ module "iam_iam-github-oidc-role" {
   ]
 
   policies = {
-    DeployPolicy = aws_iam_policy.github_deploy_policy.arn
+    DeployPolicy1 = aws_iam_policy.github_deploy_policy_1.arn
+    DeployPolicy2 = aws_iam_policy.github_deploy_policy_2.arn
   }
 }

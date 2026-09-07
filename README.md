@@ -1,6 +1,10 @@
-# Finzla Cloud & Platform Engineer Assessment – Repository Documentation
+# Finzla Cloud & Platform Engineer Assessment
 
-This README documents the contents of the `franchesny-ecs` repository as provided. It aims to be **accurate** — it describes only what is actually present in the files, and explicitly flags gaps or incomplete areas.
+[![PR Validation](https://github.com/gunslingerrepo/franchesny-ecs/actions/workflows/validate.yml/badge.svg)](https://github.com/gunslingerrepo/franchesny-ecs/actions/workflows/validate.yml)
+
+[![CI/CD - Franchesny](https://github.com/gunslingerrepo/franchesny-ecs/actions/workflows/deploy.yml/badge.svg)](https://github.com/gunslingerrepo/franchesny-ecs/actions/workflows/deploy.yml)
+
+This README documents the contents of the `franchesny-ecs` repository as provided. 
 
 ---
 

@@ -59,8 +59,6 @@ Multi-stage build:
 - **Builder stage:** installs dependencies into a virtual environment (`/opt/venv`) using `requirements.txt`.
 - **Runtime stage:** uses `python:3.12-slim`, adds build-time metadata (`APP_VERSION`, `GIT_COMMIT`, `BUILD_NUMBER`), creates a non‑root user (`appuser`), copies the virtual environment and the application source (`src/`), and runs `uvicorn src.main:app` on port `8080`. The container runs as a non‑root user, uses `PYTHONDONTWRITEBYTECODE` and `PYTHONUNBUFFERED`, and exposes port 8080.
 
-> **Note:** The Dockerfile expects the application code to be inside `app/src/` (i.e., `src/main.py`). However, the actual Python file in the repository is `app/main.py`. For the Docker build to succeed, either the directory must be renamed or the `COPY` line adjusted. This is a discrepancy that should be corrected.
-
 ### 2.3 Tests (`app/test_main.py`)
 Uses `fastapi.testclient` to test:
 - `GET /health` returns `200` and `{"status": "ok"}`
@@ -106,16 +104,13 @@ The two policies attached to the deploy role are carefully scoped to project res
 
 ## 4. CI/CD (GitHub Actions)
 
-### 4.1 `ci.yml` – Build & Push
-- Triggers on push to `main` when `app/**` or `ci.yml` changes.
+### 4.1 `deploy.yml` – Build & Push | Terraform Plan & Apply
+- Triggers on push to `main` when `app/**` or `deploy.yml` changes.
 - Steps: Checkout → Configure AWS credentials via OIDC → Login to ECR → Build and push image tagged `sha-<commit>` and `latest`.
-
-### 4.2 `cd.yml` – Terraform Plan & Apply
-- Triggers on push to `main` when `terraform/**` or `cd.yml` changes (plus manual dispatch).
+- Triggers on push to `main` when `terraform/**` or `deploy.yml` changes (plus manual dispatch).
 - Steps: Checkout → Configure AWS credentials → Setup Terraform → `init` → `plan` → `apply -auto-approve`.  
-- **Note:** The health‑check step is commented out. It should be enabled to verify the deployment after apply.
 
-### 4.3 `validate.yml` – PR Validation
+### 4.2 `validate.yml` – PR Validation
 - Triggers on pull requests to `main` when `app/**`, `.github/workflows/**`, or `terraform/**` change.
 - Jobs:
   1. **Terraform** – `fmt`, `init`, `validate`, `plan`.
@@ -233,27 +228,7 @@ The repository does **not** include CloudWatch alarms or log group retention set
 
 ---
 
-## 8. Incident Investigation (Troubleshooting Exercise)
-
-**Scenario:** New release deployed; GitHub Actions successful; ECS shows expected tasks running; customers get 503; ALB shows unhealthy targets.
-
-**First steps:**
-1. Check ALB target group health: `aws elbv2 describe-target-health --target-group-arn <tg-arn>`
-2. Check ECS service events: `aws ecs describe-services --cluster <cluster> --services pulseservice`
-3. Inspect task logs in CloudWatch.
-
-**Possible causes:**
-1. **Container crashloops** – App fails to start (missing dependencies, environment variables). Verify via task `lastStatus` and logs.
-2. **Health check mismatch** – App does not respond on port 8080 or `/health` returns non‑200. Test locally with Docker.
-3. **Security group / routing** – ECS tasks not reachable from ALB. Check SG rules and target group VPC.
-
-**Recovery:** Roll back to previous image tag by running `terraform apply -var="image_tag=sha-<previous>"`. Set `minimum_healthy_percent = 100` and `maximum_percent = 200` to avoid downtime.
-
-**Prevention:** Enable the commented health check in `cd.yml`, add CloudWatch alarms, and implement canary/blue‑green deployments.
-
----
-
-## 9. Engineering Judgement
+## 8. Engineering Judgement
 
 ### Architecture Choice
 **Why ECS/Fargate?** Managed, serverless container service with minimal operational overhead, native ALB integration, and IAM. EKS was rejected for complexity.
@@ -273,9 +248,9 @@ The repository does **not** include CloudWatch alarms or log group retention set
 
 ---
 
-## 10. Five Solid Recommendations for Production
+## 9. Five Solid Recommendations for Production
 
-1. **Enable automatic health checks in `cd.yml`** – uncomment the health check step and point it to the actual ALB DNS name (or use the Terraform output). This ensures the pipeline fails if the deployment is broken.
+1. **Enable automatic health checks in `deploy.yml`** – uncomment the health check step and point it to the actual ALB DNS name (or use the Terraform output). This ensures the pipeline fails if the deployment is broken.
 
 2. **Add CloudWatch alarms and log retention** – create `aws_cloudwatch_metric_alarm` for high 5xx and unhealthy targets; add `aws_cloudwatch_log_group` with `retention_in_days = 30` (or 90 for audit). These are essential for proactive monitoring.
 
@@ -286,25 +261,3 @@ The repository does **not** include CloudWatch alarms or log group retention set
 5. **Use a remote state lock and separate environments** – already done, but ensure the S3 bucket has versioning and MFA delete enabled. Also consider a `dev` environment with separate state and less restrictive IAM.
 
 ---
-
-## 11. Known Gaps / Discrepancies
-
-- **Dockerfile path mismatch:** The Dockerfile copies `src/`, but the application code is in `app/main.py`. Either move the code to `app/src/main.py` or update the `COPY` line.
-- **Health check in CD:** Commented out – must be enabled.
-- **No CloudWatch alarms or log groups** – not implemented in Terraform.
-- **Self‑signed certificate** – not production‑ready.
-- **Autoscaling disabled** – intentionally, but should be enabled for production.
-- **No environment separation** – only `prod`; a `dev` environment is missing.
-
----
-
-## 12. How to Run / Deploy
-
-1. **Dockerfile:** Fix the path issue (move `main.py` to `app/src/main.py` or change the `COPY` command).
-2. **Terraform IAM:** In the IAM root, run `terraform init` and `terraform apply`.
-3. **Terraform Prod:** In `terraform/envs/prod`, run `terraform init` and `terraform apply -var="image_tag=sha-<commit>"`.
-4. **CI/CD:** Push to `main` to trigger the pipelines.
-
----
-
-*This documentation is based solely on the files provided in the repository. No claims are made about functionality not explicitly implemented.*
